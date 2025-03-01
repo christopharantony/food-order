@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useActionState, useContext } from "react";
 import Modal from "./UI/Modal";
 import { currencyFormatter } from "../utils/format";
 import Input from "./UI/Input";
@@ -20,13 +20,11 @@ const Checkout = () => {
   const cartCtx = useContext(CartContext);
   const userProgressCtx = useContext(UserProgressContext);
 
-  const {
-    data,
-    error,
-    clearData,
-    sendRequest,
-    isLoading: isSending,
-  } = useHttp("http://localhost:3000/orders", requestConfig, defaultData);
+  const { data, error, clearData, sendRequest } = useHttp(
+    "http://localhost:3000/orders",
+    requestConfig,
+    defaultData
+  );
 
   const cartTotal = cartCtx.items.reduce((acc, item) => {
     return acc + item.price * item.quantity;
@@ -37,12 +35,10 @@ const Checkout = () => {
     userProgressCtx.hideCheckout();
     cartCtx.clearCart();
     clearData();
-  }
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    const formData = new FormData(event.target);
+  };
+  const checkoutAction = async (previousState, formData) => {
     const customerData = Object.fromEntries(formData.entries());
-    sendRequest(
+    await sendRequest(
       JSON.stringify({
         order: {
           items: cartCtx.items,
@@ -53,9 +49,14 @@ const Checkout = () => {
     // userProgressCtx.hideCheckout();
   };
 
+  const [formState, formAction, isPending] = useActionState(
+    checkoutAction,
+    null
+  );
+
   let actions;
 
-  if (isSending) {
+  if (isPending) {
     actions = <span>Sending order data...</span>;
   } else {
     actions = (
@@ -81,7 +82,7 @@ const Checkout = () => {
           minutes.
         </p>
         <p className="modal-actions">
-            <Button onClick={handleFinalize}>Okay</Button>
+          <Button onClick={handleFinalize}>Okay</Button>
         </p>
       </Modal>
     );
@@ -92,7 +93,7 @@ const Checkout = () => {
       open={userProgressCtx.progress === "checkout"}
       onClose={handleCancel}
     >
-      <form onSubmit={handleSubmit}>
+      <form action={formAction}>
         <h2>Checkout</h2>
         <p>Total Amount: {currencyFormatter(cartTotal)}</p>
         <Input label="Full Name" type="text" id="name" />
